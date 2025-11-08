@@ -14,7 +14,276 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          messages: Json | null
+          project_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          messages?: Json | null
+          project_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          messages?: Json | null
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analytics: {
+        Row: {
+          conversion_rate: number | null
+          date: string
+          id: string
+          product_id: string | null
+          sales: number | null
+          views: number | null
+        }
+        Insert: {
+          conversion_rate?: number | null
+          date?: string
+          id?: string
+          product_id?: string | null
+          sales?: number | null
+          views?: number | null
+        }
+        Update: {
+          conversion_rate?: number | null
+          date?: string
+          id?: string
+          product_id?: string | null
+          sales?: number | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deployments: {
+        Row: {
+          branch: string
+          build_id: string
+          created_at: string
+          id: string
+          project_id: string
+          status: string
+        }
+        Insert: {
+          branch?: string
+          build_id: string
+          created_at?: string
+          id?: string
+          project_id: string
+          status?: string
+        }
+        Update: {
+          branch?: string
+          build_id?: string
+          created_at?: string
+          id?: string
+          project_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deployments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      domains: {
+        Row: {
+          created_at: string
+          domain_name: string
+          id: string
+          project_id: string
+          ssl_status: string | null
+          verified: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          domain_name: string
+          id?: string
+          project_id: string
+          ssl_status?: string | null
+          verified?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          domain_name?: string
+          id?: string
+          project_id?: string
+          ssl_status?: string | null
+          verified?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domains_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      edits: {
+        Row: {
+          applied_at: string
+          diff: string | null
+          file_path: string
+          id: string
+          session_id: string
+        }
+        Insert: {
+          applied_at?: string
+          diff?: string | null
+          file_path: string
+          id?: string
+          session_id: string
+        }
+        Update: {
+          applied_at?: string
+          diff?: string | null
+          file_path?: string
+          id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edits_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          product_id: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          product_id: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          product_id?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_urls: string[] | null
+          price: number
+          sales: number | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+          views: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_urls?: string[] | null
+          price: number
+          sales?: number | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          views?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_urls?: string[] | null
+          price?: number
+          sales?: number | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          views?: number | null
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          created_at: string
+          id: string
+          last_deploy_at: string | null
+          name: string
+          repo_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_deploy_at?: string | null
+          name: string
+          repo_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_deploy_at?: string | null
+          name?: string
+          repo_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
