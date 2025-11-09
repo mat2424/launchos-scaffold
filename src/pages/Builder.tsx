@@ -1,9 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { FileCode, Play, Upload, FolderTree } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Play, Upload } from "lucide-react";
+import { ModernSearchBar } from "@/components/builder/ModernSearchBar";
+import { ViewToggle, ViewMode } from "@/components/builder/ViewToggle";
+import { ChatLogPanel, ChatMessage } from "@/components/builder/ChatLogPanel";
+import { LivePreview } from "@/components/builder/LivePreview";
+import { DebugLog } from "@/components/builder/DebugConsole";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const defaultCode = `import React from 'react';
 
@@ -28,18 +33,122 @@ function App() {
 
 export default App;`;
 
-const mockFiles = [
-  { name: "App.tsx", type: "file" },
-  { name: "index.tsx", type: "file" },
-  { name: "styles.css", type: "file" },
-  { name: "components", type: "folder" },
-];
-
 export default function Builder() {
+  const [viewMode, setViewMode] = useState<ViewMode>("split");
   const [code, setCode] = useState(defaultCode);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<DebugLog[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Initialize session
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("ai_sessions")
+          .insert({
+            messages: [],
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        setSessionId(data.id);
+        addDebugLog("info", "Session initialized", data.id);
+      } catch (error: any) {
+        console.error("Failed to initialize session:", error);
+        addDebugLog("error", "Failed to initialize session", error.message);
+      }
+    };
+
+    initSession();
+  }, []);
+
+  const addDebugLog = (
+    level: DebugLog["level"],
+    message: string,
+    details?: string
+  ) => {
+    setDebugLogs((prev) => [
+      ...prev,
+      { timestamp: new Date(), level, message, details },
+    ]);
+  };
+
+  const handleSendMessage = async (content: string) => {
+    if (!sessionId) {
+      toast.error("Session not initialized");
+      return;
+    }
+
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsGenerating(true);
+    addDebugLog("info", "Processing user request...");
+
+    // Simulate AI response (replace with actual AI integration)
+    setTimeout(() => {
+      const aiMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `I'll help you with: "${content}"\n\nHere's what I suggest:\n\n\`\`\`tsx\n// Your generated code will appear here\n\`\`\``,
+        timestamp: new Date(),
+        files: ["App.tsx"],
+      };
+
+      setMessages((prev) => [...prev, aiMessage]);
+      setIsGenerating(false);
+      addDebugLog("success", "Response generated successfully");
+
+      // Save to database
+      saveMessagesToDatabase([...messages, userMessage, aiMessage]);
+    }, 2000);
+  };
+
+  const saveMessagesToDatabase = async (updatedMessages: ChatMessage[]) => {
+    if (!sessionId) return;
+
+    try {
+      const { error } = await supabase
+        .from("ai_sessions")
+        .update({
+          messages: updatedMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+            timestamp: m.timestamp.toISOString(),
+          })),
+        })
+        .eq("id", sessionId);
+
+      if (error) throw error;
+      addDebugLog("info", "Messages saved to database");
+    } catch (error: any) {
+      console.error("Failed to save messages:", error);
+      addDebugLog("error", "Failed to save messages", error.message);
+    }
+  };
+
+  const handleApplyChanges = (messageId: string) => {
+    addDebugLog("info", "Applying code changes...");
+    // Extract code from message and update
+    toast.success("Changes applied successfully");
+    addDebugLog("success", "Code changes applied");
+  };
+
+  const handleClearLogs = () => {
+    setDebugLogs([]);
+  };
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-screen flex-col space-y-4 p-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">AI Builder</h1>
@@ -57,102 +166,65 @@ export default function Builder() {
         </div>
       </div>
 
-      {/* AI Command Input */}
-      <Card className="p-4">
-        <div className="flex gap-2">
-          <Input
-            placeholder="Ask AI to build or modify anything... (e.g., 'Add a navigation bar with login button')"
-            className="flex-1"
-          />
-          <Button>Generate</Button>
-        </div>
-      </Card>
+      {/* Modern Search Bar */}
+      <div className="py-4">
+        <ModernSearchBar onSend={handleSendMessage} isGenerating={isGenerating} />
+      </div>
 
-      {/* Editor Layout */}
-      <div className="grid h-[calc(100vh-300px)] gap-4 lg:grid-cols-2">
-        {/* Code Editor */}
-        <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border bg-muted/50 px-4 py-2">
-            <div className="flex items-center gap-2">
-              <FileCode className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">App.tsx</span>
-            </div>
-            <Button variant="ghost" size="sm">
-              <FolderTree className="h-4 w-4" />
-            </Button>
+      {/* View Toggle */}
+      <div className="flex justify-center">
+        <ViewToggle value={viewMode} onChange={setViewMode} />
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden">
+        {viewMode === "preview" && (
+          <div className="h-full rounded-lg border border-border bg-card overflow-hidden">
+            <LivePreview code={code} isLoading={isGenerating} />
           </div>
-          
-          {/* File Explorer Sidebar (simplified) */}
-          <div className="flex flex-1">
-            <div className="w-48 border-r border-border bg-muted/30 p-2">
-              <div className="space-y-1">
-                {mockFiles.map((file, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent"
-                  >
-                    {file.type === "folder" ? "📁" : "📄"}
-                    <span>{file.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <div className="flex-1">
-              <Editor
-                height="100%"
-                defaultLanguage="typescript"
-                value={code}
-                onChange={(value) => setCode(value || "")}
-                theme="vs-dark"
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: "on",
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                }}
+        )}
+
+        {viewMode === "split" && (
+          <div className="grid h-full gap-4 lg:grid-cols-2">
+            {/* Chat Log Panel */}
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <ChatLogPanel
+                messages={messages}
+                isGenerating={isGenerating}
+                debugLogs={debugLogs}
+                onClearLogs={handleClearLogs}
+                onApplyChanges={handleApplyChanges}
               />
             </div>
-          </div>
-        </div>
 
-        {/* Preview */}
-        <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border bg-muted/50 px-4 py-2">
-            <span className="text-sm font-medium">Preview</span>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>localhost:3000</span>
+            {/* Live Preview */}
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <LivePreview code={code} isLoading={isGenerating} />
             </div>
           </div>
-          <div className="flex-1 overflow-auto bg-white">
-            <iframe
-              srcDoc={`
-                <!DOCTYPE html>
-                <html>
-                  <head>
-                    <script src="https://cdn.tailwindcss.com"></script>
-                  </head>
-                  <body>
-                    <div id="root"></div>
-                    <script type="module">
-                      ${code.replace('export default App;', '')}
-                      
-                      const root = document.getElementById('root');
-                      root.innerHTML = '';
-                      const appElement = document.createElement('div');
-                      appElement.innerHTML = App().props.children;
-                      root.appendChild(appElement);
-                    </script>
-                  </body>
-                </html>
-              `}
-              className="h-full w-full"
-              title="preview"
-              sandbox="allow-scripts"
+        )}
+
+        {viewMode === "code" && (
+          <div className="h-full rounded-lg border border-border bg-card overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border bg-muted/50 px-4 py-2">
+              <span className="text-sm font-medium">App.tsx</span>
+            </div>
+            <Editor
+              height="calc(100% - 41px)"
+              defaultLanguage="typescript"
+              value={code}
+              onChange={(value) => setCode(value || "")}
+              theme="vs-dark"
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                lineNumbers: "on",
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+              }}
             />
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
