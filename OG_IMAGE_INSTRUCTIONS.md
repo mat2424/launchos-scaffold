@@ -19,8 +19,7 @@ Discord and iMessage don't support SVG images for Open Graph previews. They need
    - Text 1: "LaunchOS" (large, white, bold)
    - Text 2: "All-in-One AI Platform" (smaller, gray)
 3. Download as PNG
-4. Save to: `C:\Users\mathe\Shop.dev\launchos-scaffold\public\og-image.png`
-5. Let Claude know it's ready
+4. Save to: `public/og-image.png`5. Let Claude know it's ready
 
 ### Option 3: Simple Canva Template
 1. Go to: https://www.canva.com/
