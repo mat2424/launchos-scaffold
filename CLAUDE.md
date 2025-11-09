@@ -16,34 +16,38 @@ LaunchOS is a multi-purpose platform built with React, TypeScript, Vite, and Sup
 # Install dependencies
 npm i
 
-# Start development server (runs on port 8080)
+# Start development server (runs on port 8080, with IPv6 support)
 npm run dev
 
 # Build for production
 npm run build
 
-# Build in development mode (preserves component tagging)
+# Build in development mode (preserves component tagging for Lovable)
 npm run build:dev
 
-# Run linter
+# Run linter (ESLint with TypeScript support)
 npm run lint
 
-# Preview production build
+# Preview production build locally
 npm run preview
 ```
+
+**Note**: The dev server runs on port 8080 with IPv6 enabled (`::`). Unused variables are allowed (ESLint rule disabled) for rapid prototyping.
 
 ## Architecture
 
 ### Frontend Stack
-- **React 18** with TypeScript
-- **Vite** for build tooling (SWC for fast compilation)
-- **React Router** for navigation
-- **shadcn/ui** components (Radix UI primitives + Tailwind)
-- **TanStack Query** for server state management
-- **Supabase** client for database and edge functions
+- **React 18** with TypeScript 5.8
+- **Vite 5** for build tooling with SWC plugin for fast compilation
+- **React Router 6** for client-side routing
+- **shadcn/ui** components (Radix UI primitives + Tailwind CSS 3.4)
+- **TanStack Query v5** for server state management and caching
+- **Supabase JS Client** for database operations, auth, and edge functions
+- **Monaco Editor** for code editing in AI Builder
+- **Recharts** for analytics visualizations
 
 ### Database Layer (Supabase)
-The application uses 7 main tables:
+The application uses 8 main tables:
 - `products` - Product catalog with images, pricing, inventory, analytics
 - `ai_sessions` - Chat history for AI Builder sessions
 - `edits` - File change tracking for AI Builder
@@ -52,6 +56,8 @@ The application uses 7 main tables:
 - `domains` - Custom domain management
 - `orders` - Order transactions
 - `analytics` - Historical analytics data
+
+**Auth**: Uses Supabase Auth with email/password authentication. Auth state is managed via `AuthContext` (src/contexts/AuthContext.tsx) with `useAuth()` hook. All routes except `/login` are protected via `ProtectedRoute` component.
 
 ### Application Structure
 
@@ -117,9 +123,15 @@ supabase/functions/
 - All pages (except NotFound) wrapped in `DashboardLayout`
 
 ### Styling
-- Uses Tailwind CSS with CSS variables for theming
-- Color scheme: `foreground`, `background`, `card`, `accent`, `muted`, `border`
-- Component styling via `cn()` utility from `src/lib/utils.ts`
+- Uses Tailwind CSS 3.4 with CSS variables for theming (configured in `tailwind.config.ts`)
+- Dark mode support via class-based strategy (`darkMode: ["class"]`)
+- Color scheme defined using HSL CSS variables:
+  - Layout: `background`, `foreground`, `border`, `card`, `sidebar`
+  - Semantic: `primary`, `secondary`, `destructive`, `muted`, `accent`, `success`, `warning`
+  - Each color has a matching `-foreground` variant for text
+- Component styling via `cn()` utility from `src/lib/utils.ts` (combines clsx + tailwind-merge)
+- Custom animations: `accordion-down`, `accordion-up`
+- Typography plugin available via `@tailwindcss/typography`
 
 ### Data Fetching
 - Use TanStack Query's `useQuery` for reads
@@ -134,10 +146,12 @@ supabase/functions/
 - Real-time: create channel → subscribe to table changes → invalidate queries → cleanup
 
 ### Component Development
-- shadcn/ui components in `src/components/ui/` are managed by the CLI
-- Custom components should be feature-specific (builder/, products/)
-- Use Radix UI primitives for complex interactions
-- Icons from `lucide-react`
+- shadcn/ui components in `src/components/ui/` are managed by the shadcn CLI (don't edit manually)
+- Custom components should be feature-specific (place in `builder/`, `products/` subdirectories)
+- Use Radix UI primitives for complex interactions (dialogs, dropdowns, popovers, etc.)
+- Icons from `lucide-react` library
+- Toast notifications: use `useToast()` hook from `src/hooks/use-toast.ts` or `sonner` for simpler toasts
+- Forms: use `react-hook-form` with `zod` for validation and `@hookform/resolvers` for integration
 
 ## Environment Variables
 
@@ -145,6 +159,39 @@ Required for Supabase edge functions:
 - `LOVABLE_API_KEY` - For AI product analysis (set in Supabase dashboard)
 
 Supabase credentials are hardcoded in client.ts (public anon key is safe for frontend).
+
+## Deployment
+
+### Vercel Deployment
+
+The project is configured for Vercel deployment with `vercel.json`:
+
+```bash
+# Install Vercel CLI (if not already installed)
+npm i -g vercel
+
+# Deploy to Vercel
+vercel
+
+# Deploy to production
+vercel --prod
+```
+
+**Configuration**:
+- Build command: `npm run build`
+- Output directory: `dist`
+- Framework: Vite
+- Rewrites: All routes redirect to `/index.html` (for client-side routing)
+
+**Environment Variables on Vercel**:
+No environment variables are required for the frontend as Supabase credentials are in the code (public anon key). However, ensure your Supabase edge functions have the necessary secrets configured in the Supabase dashboard.
+
+**Important Notes**:
+- Vercel automatically detects Vite projects
+- The build output is in the `dist/` directory
+- Client-side routing is handled via rewrites to `index.html`
+- Edge functions remain on Supabase (not moved to Vercel)
+- Make sure your Supabase project allows connections from Vercel's deployment URLs
 
 ## Common Tasks
 
@@ -173,10 +220,50 @@ Supabase credentials are hardcoded in client.ts (public anon key is safe for fro
 4. Form will auto-populate with AI-extracted data
 5. Check browser console for detailed error messages if analysis fails
 
+## Authentication & Authorization
+
+The app uses Supabase Auth with a context-based approach:
+
+```tsx
+// Get auth state
+const { user, session, loading, signIn, signOut, signUp } = useAuth();
+
+// Sign in
+await signIn(email, password);
+
+// Sign up
+await signUp(email, password);
+
+// Sign out
+await signOut();
+```
+
+- Auth state is initialized in `AuthProvider` and persisted via Supabase session
+- Auth changes are logged via `src/lib/logger.ts` for debugging
+- Routes are protected using `ProtectedRoute` wrapper component
+- Login page is at `/login` (unprotected)
+- All other routes require authentication
+
+## Logging System
+
+A custom logger is available at `src/lib/logger.ts` for consistent logging:
+
+```tsx
+import { logger } from '@/lib/logger';
+
+logger.info('Message', 'ComponentName', { data });
+logger.error('Error message', 'ComponentName', error);
+logger.debug('Debug info', 'ComponentName');
+```
+
+Logs include context (component name) and optional metadata for better debugging.
+
 ## Notes
 
 - This is a Lovable.dev project (scaffold for rapid prototyping)
-- The `lovable-tagger` plugin runs in development mode only
-- Server runs on port 8080 (IPv6 enabled)
+- The `lovable-tagger` plugin runs in development mode only (strips tags in production)
+- Server runs on port 8080 with IPv6 enabled (`::`)
 - Monaco editor configuration: no minimap, dark theme, 14px font
-- Component tagging is stripped in production builds
+- Path alias `@/` points to `src/` directory (configured in vite.config.ts)
+- TypeScript strict mode is enabled with ES2020 target
+- Uses Bun for package management (bun.lockb present)
