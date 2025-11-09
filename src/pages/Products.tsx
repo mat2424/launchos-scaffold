@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, TrendingUp, Eye, DollarSign, Package } from "lucide-react";
+import { Plus, TrendingUp, Eye, DollarSign, Package, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,13 +17,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { CameraCapture } from "@/components/products/CameraCapture";
+import { EditProductDialog } from "@/components/products/EditProductDialog";
 
 export default function Products() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     price: '',
+    inventory: '',
+    image_urls: '',
     tags: ''
   });
   const queryClient = useQueryClient();
@@ -77,13 +84,61 @@ export default function Products() {
     onSuccess: () => {
       toast.success('Product created successfully');
       setIsDialogOpen(false);
-      setFormData({ title: '', description: '', price: '', tags: '' });
+      setFormData({ title: '', description: '', price: '', inventory: '', image_urls: '', tags: '' });
+      setIsAnalyzing(false);
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to create product');
+      setIsAnalyzing(false);
     }
   });
+
+  const handleCameraCapture = async (imageBase64: string) => {
+    setIsAnalyzing(true);
+    toast.info("Analyzing product with AI...");
+
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-product', {
+        body: { imageBase64 }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Update form with AI-generated data
+      setFormData(prev => ({
+        ...prev,
+        title: data.title || prev.title,
+        description: data.description || prev.description,
+        price: data.price?.toString() || prev.price,
+        tags: Array.isArray(data.tags) ? data.tags.join(', ') : prev.tags,
+        image_urls: imageBase64
+      }));
+
+      toast.success("Product analyzed successfully!");
+    } catch (error) {
+      console.error('Analysis error:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to analyze product");
+      // Still set the image even if analysis fails
+      setFormData(prev => ({
+        ...prev,
+        image_urls: imageBase64
+      }));
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleProductClick = (product: any) => {
+    setSelectedProduct(product);
+    setIsEditDialogOpen(true);
+  };
 
   const handleSubmit = () => {
     if (!formData.title || !formData.price) {
@@ -95,6 +150,8 @@ export default function Products() {
       title: formData.title,
       description: formData.description,
       price: parseFloat(formData.price),
+      inventory: parseInt(formData.inventory) || 0,
+      image_urls: formData.image_urls.split(',').map(url => url.trim()).filter(Boolean),
       tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)
     });
   };
@@ -113,11 +170,11 @@ export default function Products() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Product</DialogTitle>
               <DialogDescription>
-                Add a new product to your catalog
+                Add a new product to your catalog or use camera to scan
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -137,29 +194,72 @@ export default function Products() {
                   placeholder="Product description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="price">Price *</Label>
-                <Input 
-                  id="price" 
-                  type="number" 
-                  placeholder="0.00"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Price ($) *</Label>
+                  <Input 
+                    id="price" 
+                    type="number" 
+                    step="0.01"
+                    placeholder="0.00"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="inventory">Inventory</Label>
+                  <Input 
+                    id="inventory" 
+                    type="number"
+                    placeholder="0"
+                    value={formData.inventory}
+                    onChange={(e) => setFormData({ ...formData, inventory: e.target.value })}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tags">Tags (comma separated)</Label>
                 <Input 
                   id="tags" 
-                  placeholder="saas, template, etc."
+                  placeholder="electronics, gadgets"
                   value={formData.tags}
                   onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                 />
               </div>
-              <Button onClick={handleSubmit} className="w-full" disabled={createProduct.isPending}>
-                {createProduct.isPending ? 'Creating...' : 'Create Product'}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="image_urls">Image URLs (comma separated)</Label>
+                  <CameraCapture 
+                    onCapture={handleCameraCapture}
+                    onAnalyzing={setIsAnalyzing}
+                  />
+                </div>
+                <Textarea 
+                  id="image_urls" 
+                  placeholder="https://example.com/image.jpg or data:image/jpeg;base64,..."
+                  value={formData.image_urls}
+                  onChange={(e) => setFormData({ ...formData, image_urls: e.target.value })}
+                  rows={2}
+                />
+              </div>
+              <Button 
+                onClick={handleSubmit} 
+                className="w-full" 
+                disabled={createProduct.isPending || isAnalyzing}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : createProduct.isPending ? (
+                  "Creating..."
+                ) : (
+                  "Create Product"
+                )}
               </Button>
             </div>
           </DialogContent>
@@ -218,10 +318,24 @@ export default function Products() {
           </Card>
         ) : (
           products.map((product: any) => (
-            <Card key={product.id} className="overflow-hidden">
-              <div className="flex h-32 items-center justify-center bg-accent text-6xl">
-                📦
-              </div>
+            <Card 
+              key={product.id} 
+              className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleProductClick(product)}
+            >
+              {product.image_urls && product.image_urls.length > 0 ? (
+                <div className="h-48 w-full overflow-hidden bg-muted">
+                  <img 
+                    src={product.image_urls[0]} 
+                    alt={product.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="flex h-48 items-center justify-center bg-accent text-6xl">
+                  📦
+                </div>
+              )}
               <CardHeader>
                 <CardTitle className="text-lg">{product.title}</CardTitle>
                 <p className="text-sm text-muted-foreground">{product.description || 'No description'}</p>
@@ -230,14 +344,17 @@ export default function Products() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-2xl font-bold text-foreground">${Number(product.price).toFixed(2)}</span>
-                    <div className="flex gap-2 flex-wrap">
-                      {product.tags?.slice(0, 2).map((tag: string) => (
+                    <Badge variant="outline">Stock: {product.inventory || 0}</Badge>
+                  </div>
+                  {product.tags && product.tags.length > 0 && (
+                    <div className="flex gap-1 flex-wrap">
+                      {product.tags.slice(0, 3).map((tag: string) => (
                         <Badge key={tag} variant="secondary">
                           {tag}
                         </Badge>
                       ))}
                     </div>
-                  </div>
+                  )}
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>{product.views || 0} views</span>
                     <span>{product.sales || 0} sales</span>
@@ -248,6 +365,12 @@ export default function Products() {
           ))
         )}
       </div>
+
+      <EditProductDialog
+        product={selectedProduct}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+      />
     </div>
   );
 }
