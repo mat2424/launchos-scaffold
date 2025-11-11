@@ -9,6 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Rocket } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import { z } from 'zod';
+
+// Strong password validation schema
+const passwordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number');
 
 const Login = () => {
   const { signIn, signUp } = useAuth();
@@ -69,8 +77,15 @@ const Login = () => {
       return;
     }
 
-    if (signupPassword.length < 6) {
-      setError('Password must be at least 6 characters long');
+    // Validate password strength
+    try {
+      passwordSchema.parse(signupPassword);
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        setError(validationError.issues[0].message);
+      } else {
+        setError('Invalid password format');
+      }
       setLoading(false);
       return;
     }
@@ -168,7 +183,7 @@ const Login = () => {
                   <Input
                     id="signup-password"
                     type="password"
-                    placeholder="At least 6 characters"
+                    placeholder="Min 8 chars with uppercase, lowercase, number"
                     value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)}
                     disabled={loading}
