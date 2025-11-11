@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, TrendingUp, Eye, DollarSign, Package, Loader2 } from "lucide-react";
+import { z } from "zod";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CameraCapture } from "@/components/products/CameraCapture";
 import { EditProductDialog } from "@/components/products/EditProductDialog";
+
+// Validation schema for product data
+const productSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
+  description: z.string().trim().max(2000, 'Description must be less than 2000 characters').optional(),
+  price: z.number().positive('Price must be positive').max(999999, 'Price must be less than $999,999'),
+  inventory: z.number().int('Inventory must be a whole number').min(0, 'Inventory cannot be negative').max(999999, 'Inventory too high'),
+  tags: z.array(z.string().trim().max(50, 'Tag too long')).max(10, 'Maximum 10 tags allowed'),
+  image_urls: z.array(z.string().max(10000, 'Image URL/data too large')).max(5, 'Maximum 5 images allowed')
+});
 
 export default function Products() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -146,14 +157,27 @@ export default function Products() {
       return;
     }
 
-    createProduct.mutate({
+    // Prepare data
+    const productData = {
       title: formData.title,
-      description: formData.description,
+      description: formData.description || '',
       price: parseFloat(formData.price),
       inventory: parseInt(formData.inventory) || 0,
       image_urls: formData.image_urls.split(',').map(url => url.trim()).filter(Boolean),
       tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)
-    });
+    };
+
+    // Validate with schema
+    try {
+      productSchema.parse(productData);
+      createProduct.mutate(productData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.issues[0].message);
+      } else {
+        toast.error('Invalid product data');
+      }
+    }
   };
 
   return (

@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          logger.info(`User session restored: ${session.user.email}`, 'AuthProvider');
+          logger.info('User session restored', 'AuthProvider');
         } else {
           logger.debug('No active session found', 'AuthProvider');
         }
@@ -45,7 +45,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logger.info(`Auth state changed: ${_event}`, 'AuthProvider', {
         event: _event,
         userId: session?.user?.id,
-        email: session?.user?.email,
       });
 
       setSession(session);
@@ -60,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    logger.info(`Sign up attempt for: ${email}`, 'AuthProvider');
+    logger.info('Sign up attempt', 'AuthProvider');
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -68,9 +67,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (error) {
-      logger.error(`Sign up failed for ${email}`, 'AuthProvider', error);
+      logger.error('Sign up failed', 'AuthProvider', error);
     } else {
-      logger.info(`Sign up successful for ${email}`, 'AuthProvider', {
+      logger.info('Sign up successful', 'AuthProvider', {
         userId: data.user?.id,
         needsConfirmation: !data.session,
       });
@@ -80,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    logger.info(`Sign in attempt for: ${email}`, 'AuthProvider');
+    logger.info('Sign in attempt', 'AuthProvider');
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -88,9 +87,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (error) {
-      logger.error(`Sign in failed for ${email}`, 'AuthProvider', error);
+      logger.error('Sign in failed', 'AuthProvider', error);
     } else {
-      logger.info(`Sign in successful for ${email}`, 'AuthProvider', {
+      logger.info('Sign in successful', 'AuthProvider', {
         userId: data.user?.id,
       });
     }
@@ -99,15 +98,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    const userEmail = user?.email;
-    logger.info(`Sign out attempt for: ${userEmail}`, 'AuthProvider');
+    logger.info('Sign out attempt', 'AuthProvider');
 
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      logger.error(`Sign out failed for ${userEmail}`, 'AuthProvider', error);
+      logger.error('Sign out failed', 'AuthProvider', error);
     } else {
-      logger.info(`Sign out successful for ${userEmail}`, 'AuthProvider');
+      logger.info('Sign out successful', 'AuthProvider');
     }
   };
 

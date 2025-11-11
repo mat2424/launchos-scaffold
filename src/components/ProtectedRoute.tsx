@@ -24,6 +24,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  logger.debug(`User authenticated: ${user.email}`, 'ProtectedRoute');
+  logger.debug('User authenticated', 'ProtectedRoute');
   return <>{children}</>;
 };

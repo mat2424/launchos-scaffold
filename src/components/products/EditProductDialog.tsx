@@ -8,6 +8,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CameraCapture } from './CameraCapture';
+import { z } from 'zod';
+
+// Validation schema for product data
+const productSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(200, 'Title must be less than 200 characters'),
+  description: z.string().trim().max(2000, 'Description must be less than 2000 characters'),
+  price: z.number().positive('Price must be positive').max(999999, 'Price must be less than $999,999'),
+  inventory: z.number().int('Inventory must be a whole number').min(0, 'Inventory cannot be negative').max(999999, 'Inventory too high'),
+  tags: z.array(z.string().trim().max(50, 'Tag too long')).max(10, 'Maximum 10 tags allowed'),
+  image_urls: z.array(z.string().max(10000, 'Image URL/data too large')).max(5, 'Maximum 5 images allowed')
+});
 
 interface Product {
   id: string;
@@ -115,7 +126,36 @@ export const EditProductDialog = ({ product, open, onOpenChange }: EditProductDi
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    updateProduct.mutate(formData);
+    
+    // Prepare data
+    const productData = {
+      title: formData.title,
+      description: formData.description,
+      price: parseFloat(formData.price),
+      inventory: parseInt(formData.inventory),
+      tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+      image_urls: formData.image_urls.split(',').map(u => u.trim()).filter(Boolean)
+    };
+
+    // Validate with schema
+    try {
+      productSchema.parse(productData);
+      updateProduct.mutate(formData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: 'Validation Error',
+          description: error.issues[0].message,
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Invalid product data',
+          variant: 'destructive'
+        });
+      }
+    }
   };
 
   const handleCameraCapture = async (imageBase64: string) => {

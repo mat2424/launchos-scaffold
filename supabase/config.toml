@@ -189,7 +189,8 @@ uri = "pg-functions://postgres/public/send_sms_hook"
 # node_version = 18
 
 [functions.analyze-product]
-verify_jwt = false
+# JWT verification enabled for authentication
+# verify_jwt = true (default)
 
 [analytics]
 enabled = true
