@@ -13,6 +13,7 @@ import Builder from "./pages/Builder";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import PublicProject from "./pages/PublicProject";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/p/:projectId" element={<PublicProject />} />
             <Route
               path="/"
               element={

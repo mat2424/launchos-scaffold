@@ -192,6 +192,10 @@ uri = "pg-functions://postgres/public/send_sms_hook"
 # JWT verification enabled for authentication
 # verify_jwt = true (default)
 
+[functions.deploy-project]
+# JWT verification enabled for authentication
+# verify_jwt = true (default)
+
 [analytics]
 enabled = true
 port = 54327

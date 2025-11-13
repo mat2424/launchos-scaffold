@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import CreateProjectDialog from "@/components/hosting/CreateProjectDialog";
+import DeploymentLogsDialog from "@/components/hosting/DeploymentLogsDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,7 @@ export default function Hosting() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deployingProjectId, setDeployingProjectId] = useState<string | null>(null);
+  const [logsProject, setLogsProject] = useState<{ id: string; name: string } | null>(null);
 
   const { data: projects } = useQuery({
     queryKey: ['projects'],
@@ -95,56 +97,26 @@ export default function Hosting() {
   const handleDeploy = async (projectId: string) => {
     setDeployingProjectId(projectId);
     try {
-      // Create deployment record
-      const buildId = `build-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-      
-      const { error: deployError } = await supabase
-        .from('deployments')
-        .insert({
-          project_id: projectId,
-          build_id: buildId,
-          branch: 'main',
-          status: 'pending',
-        });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
 
-      if (deployError) throw deployError;
+      const { data, error } = await supabase.functions.invoke('deploy-project', {
+        body: { project_id: projectId, branch: 'main' },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
 
       toast({
         title: "Deployment started",
-        description: "Your project is being deployed...",
+        description: `Build ID: ${data.deployment.build_id}`,
       });
 
-      // Simulate deployment process
-      setTimeout(async () => {
-        // Update deployment status to building
-        await supabase
-          .from('deployments')
-          .update({ status: 'building' })
-          .eq('build_id', buildId);
-
-        // After a delay, mark as success and update project
-        setTimeout(async () => {
-          await supabase
-            .from('deployments')
-            .update({ status: 'success' })
-            .eq('build_id', buildId);
-
-          await supabase
-            .from('projects')
-            .update({ 
-              status: 'active',
-              last_deploy_at: new Date().toISOString(),
-            })
-            .eq('id', projectId);
-
-          toast({
-            title: "Deployment successful!",
-            description: "Your project is now live.",
-          });
-
-          setDeployingProjectId(null);
-        }, 3000);
-      }, 2000);
+      setDeployingProjectId(null);
     } catch (error) {
       toast({
         title: "Deployment failed",
@@ -277,7 +249,13 @@ export default function Hosting() {
                   <div className="flex gap-2 pt-2">
                     <Button 
                       size="sm" 
-                      variant="outline" 
+                      variant="outline"
+                      onClick={() => setLogsProject({ id: project.id, name: project.name })}
+                    >
+                      View Logs
+                    </Button>
+                    <Button 
+                      size="sm" 
                       className="flex-1"
                       onClick={() => handleDeploy(project.id)}
                       disabled={deployingProjectId === project.id}
@@ -360,6 +338,15 @@ export default function Hosting() {
         open={createDialogOpen} 
         onOpenChange={setCreateDialogOpen}
       />
+
+      {logsProject && (
+        <DeploymentLogsDialog
+          open={!!logsProject}
+          onOpenChange={() => setLogsProject(null)}
+          projectId={logsProject.id}
+          projectName={logsProject.name}
+        />
+      )}
 
       <AlertDialog open={!!deleteProjectId} onOpenChange={() => setDeleteProjectId(null)}>
         <AlertDialogContent>
