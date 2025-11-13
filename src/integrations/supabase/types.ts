@@ -266,29 +266,38 @@ export type Database = {
       projects: {
         Row: {
           created_at: string
+          deployment_url: string | null
+          description: string | null
           id: string
           last_deploy_at: string | null
           name: string
           repo_url: string | null
           status: string
+          subdomain: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          deployment_url?: string | null
+          description?: string | null
           id?: string
           last_deploy_at?: string | null
           name: string
           repo_url?: string | null
           status?: string
+          subdomain?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          deployment_url?: string | null
+          description?: string | null
           id?: string
           last_deploy_at?: string | null
           name?: string
           repo_url?: string | null
           status?: string
+          subdomain?: string | null
           updated_at?: string
         }
         Relationships: []
